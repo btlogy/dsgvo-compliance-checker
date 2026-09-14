@@ -144,16 +144,17 @@ def check_cookie_banner(ctx: ScanContext) -> CheckResult:
 
 def check_trackers(ctx: ScanContext) -> CheckResult:
     tracker_domains = _load_trackers()
-    html_lower = ctx.html.lower()
     scripts = ctx.soup.find_all("script", src=True)
     script_srcs = [s.get("src", "") for s in scripts]
+    script_blks = ctx.soup.find_all("script", src=False)
 
     found_trackers = []
     for tracker in tracker_domains:
-        tracker_lower = tracker.lower()
-        if tracker_lower in html_lower:
+        # Look around the domain to make sure it is use as such in a valid URL
+        tracker_re = r"(:\/\/|\")" + re.escape(tracker) + r"[\/\?#\"]"
+        if any(re.search(tracker_re, block.get_text(), re.IGNORECASE) for block in script_blks):
             found_trackers.append(tracker)
-        elif any(tracker_lower in src.lower() for src in script_srcs):
+        elif any(re.search(tracker_re, src, re.IGNORECASE) for src in script_srcs):
             if tracker not in found_trackers:
                 found_trackers.append(tracker)
 
